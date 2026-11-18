@@ -17,7 +17,10 @@
 **Opcional (enunciado):** colección de requests → `postman/cocos-challenge.postman_collection.json`.
 - **Uso:** se importa en Postman (File → Import) y se ajusta `baseUrl` si la app no corre en `http://localhost:8080`.
 - **Contenido:** health, búsqueda, portfolio, creación de órdenes (todas las combinaciones y errores),
-  idempotencia y cancelación. Cada request tiene tests.
+  transferencias CASH_IN/CASH_OUT, idempotencia y cancelación. Cada request tiene tests.
+- **Transferencias:** están en la subcarpeta *Cash transfers* de *4. Orders - create* y deben correrse en orden.
+  Cubren CASH_IN, CASH_OUT, sus reintentos idempotentes, una key reutilizada con otro monto (409) y un CASH_OUT
+  rechazado. Los tests comparan el cash del portfolio antes y después de cada request, así que no dependen del seed.
 - **Corrida:** los valores esperados son los del seed. Conviene correrla en orden (Collection Runner) contra una base
   recién inicializada (`docker compose down -v` y luego `docker compose up -d --wait`).
 - **`Idempotency-Key`:** la colección genera una key por request. La carpeta de idempotencia reutiliza una key fija

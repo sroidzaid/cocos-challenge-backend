@@ -2,7 +2,7 @@
   "info": {
     "name": "Cocos Challenge Backend",
     "_postman_id": "6d2f1c7e-4b8a-4f3e-9c1d-2a7b5e8f0c13",
-    "description": "Requests to try the API of cocos-challenge-backend.\n\nUsage:\n- Import this file in Postman (File > Import). Set `baseUrl` if the app does not run on http://localhost:8080.\n- The expected values in the tests are those of the original seed (database.sql + V2). Run the folders in order with the Collection Runner against a freshly initialised local database: orders change the account, so a second run starts from a different state.\n- POST /orders requires an `Idempotency-Key` (UUID). The collection pre-request script generates a new one per request (`{{requestKey}}`); the Idempotency folder reuses a fixed `{{idempotencyKey}}` on purpose.\n- Profile `cocos`: the external database is read-only by default, so every POST fails (the database rejects writes); only Health, Instruments and Portfolio apply, and their values depend on that database's data.\n- No credentials here: the application is the one that connects to the database. Swagger UI: {{baseUrl}}/swagger-ui.html",
+    "description": "Requests to try the API of cocos-challenge-backend.\n\nUsage:\n- Import this file in Postman (File > Import). Set `baseUrl` if the app does not run on http://localhost:8080.\n- The expected values in the tests are those of the original seed (database.sql + V2). Run the folders in order with the Collection Runner against a freshly initialised local database: orders change the account, so a second run starts from a different state.\n- POST /orders requires an `Idempotency-Key` (UUID). The collection pre-request script generates a new one per request (`{{requestKey}}`); the Idempotency folder reuses a fixed `{{idempotencyKey}}` on purpose.\n- Cash transfers (CASH_IN / CASH_OUT) are in a subfolder of Orders - create. Their checks compare the portfolio before and after each request, so they do not depend on the seed figures.\n- Profile `cocos`: the external database is read-only by default, so every POST fails (the database rejects writes); only Health, Instruments and Portfolio apply, and their values depend on that database's data.\n- No credentials here: the application is the one that connects to the database. Swagger UI: {{baseUrl}}/swagger-ui.html",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,7 +11,13 @@
     { "key": "instrumentId", "value": "47", "description": "PAMP (Pampa Holding S.A.)" },
     { "key": "idempotencyKey", "value": "" },
     { "key": "orderId", "value": "" },
-    { "key": "limitOrderId", "value": "" }
+    { "key": "limitOrderId", "value": "" },
+    { "key": "transferKey", "value": "", "description": "Idempotency-Key shared by a transfer and its retry (set by the scripts)" },
+    { "key": "transferOrderId", "value": "", "description": "Id of the last transfer created (set by the scripts)" },
+    { "key": "cashBefore", "value": "", "description": "cashBalance before the current transfer request (set by the scripts)" },
+    { "key": "availableCashBefore", "value": "", "description": "availableCash before the current transfer request (set by the scripts)" },
+    { "key": "expectedCashDelta", "value": "", "description": "Cash movement the current transfer request must produce (set by the scripts)" },
+    { "key": "cashOutTooMuch", "value": "", "description": "availableCash + 1, for the rejected CASH_OUT (set by the scripts)" }
   ],
   "event": [
     {
@@ -363,6 +369,213 @@
             "body": { "mode": "raw", "raw": "{\n  \"instrumentId\": {{instrumentId}},\n  \"side\": \"BUY\",\n  \"type\": \"MARKET\",\n  \"amount\": 100\n}" },
             "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
           }
+        },
+        {
+          "name": "Cash transfers CASH_IN / CASH_OUT (run in order)",
+          "description": "Transfers go through the same POST /orders with only `side` and `amount` (whole pesos). They are stored as orders on the ARS instrument with size = amount, price = 1, type MARKET.\n\nRun the six requests in order: each retry reuses the `{{transferKey}}` and `{{transferOrderId}}` of the request before it, and the CASH_OUT of 3,000 is covered by the CASH_IN of 5,000 just before it.\n\nThe checks are relative to the current state, so they also pass on a database that is not fresh. The folder scripts read the portfolio before and after every request. The cash (`cashBalance` and `availableCash`) must move by exactly the `expectedCashDelta` each request declares: +5,000, -3,000, or 0 for replays, conflicts and rejections. A full run leaves user {{userId}} with 2,000 more pesos.",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "// Snapshot of the cash before the request; each request declares its expectedCashDelta afterwards.",
+              "pm.collectionVariables.unset('expectedCashDelta');",
+              "pm.sendRequest(pm.variables.replaceIn('{{baseUrl}}/api/v1/users/{{userId}}/portfolio'), (err, res) => {",
+              "  if (err || res.code !== 200) { throw new Error('Could not read the portfolio before the request'); }",
+              "  const portfolio = res.json();",
+              "  pm.collectionVariables.set('cashBefore', String(portfolio.cashBalance));",
+              "  pm.collectionVariables.set('availableCashBefore', String(portfolio.availableCash));",
+              "});"
+            ] } },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "// Cash after the request versus the snapshot, compared in cents to avoid floating point noise.",
+              "const expected = Number(pm.collectionVariables.get('expectedCashDelta'));",
+              "const cents = value => Math.round(Number(value) * 100);",
+              "pm.sendRequest(pm.variables.replaceIn('{{baseUrl}}/api/v1/users/{{userId}}/portfolio'), (err, res) => {",
+              "  pm.test('cash moved by exactly ' + expected + ' (cashBalance and availableCash)', () => {",
+              "    pm.expect(err).to.eql(null);",
+              "    pm.expect(Number.isFinite(expected), 'the request must declare expectedCashDelta').to.be.true;",
+              "    const portfolio = res.json();",
+              "    pm.expect(cents(portfolio.cashBalance) - cents(pm.collectionVariables.get('cashBefore'))).to.eql(expected * 100);",
+              "    pm.expect(cents(portfolio.availableCash) - cents(pm.collectionVariables.get('availableCashBefore'))).to.eql(expected * 100);",
+              "  });",
+              "});"
+            ] } }
+          ],
+          "item": [
+            {
+              "name": "CASH_IN 5000 -> FILLED (credits the cash)",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "pm.collectionVariables.set('transferKey', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.collectionVariables.set('expectedCashDelta', '5000');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 FILLED, not a replay', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(body.status).to.eql('FILLED');",
+                  "  pm.expect(pm.response.headers.has('Idempotent-Replayed')).to.be.false;",
+                  "});",
+                  "pm.test('stored on ARS with size = amount, price = 1, MARKET', () => {",
+                  "  pm.expect(body.id).to.be.a('number');",
+                  "  pm.expect(body.userId).to.eql(Number(pm.collectionVariables.get('userId')));",
+                  "  pm.expect(body.instrumentId).to.eql(66);",
+                  "  pm.expect(body.side).to.eql('CASH_IN');",
+                  "  pm.expect(body.type).to.eql('MARKET');",
+                  "  pm.expect(body.size).to.eql(5000);",
+                  "  pm.expect(body.price).to.eql(1);",
+                  "  pm.expect(body.rejectionReason).to.eql(null);",
+                  "});",
+                  "pm.collectionVariables.set('transferOrderId', body.id);"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{transferKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_IN\",\n  \"amount\": 5000\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            },
+            {
+              "name": "Retry CASH_IN: same key, same request -> credited once",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "pm.collectionVariables.set('expectedCashDelta', '0');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 replay of the same CASH_IN', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true');",
+                  "  pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('transferOrderId')));",
+                  "  pm.expect(body.status).to.eql('FILLED');",
+                  "});"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{transferKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_IN\",\n  \"amount\": 5000\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            },
+            {
+              "name": "Same key, different amount -> 409",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "pm.collectionVariables.set('expectedCashDelta', '0');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "pm.test('409 IDEMPOTENCY_KEY_REUSED', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.code).to.eql('IDEMPOTENCY_KEY_REUSED');",
+                  "  pm.expect(body.detail).to.include('was already used for a different order request');",
+                  "});"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{transferKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_IN\",\n  \"amount\": 6000\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            },
+            {
+              "name": "CASH_OUT 3000 -> FILLED (debits the cash)",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "// New key: a new intention. The CASH_IN of 5,000 above guarantees the funds.",
+                  "pm.collectionVariables.set('transferKey', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.collectionVariables.set('expectedCashDelta', '-3000');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 FILLED CASH_OUT of 3000, not a replay', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.headers.has('Idempotent-Replayed')).to.be.false;",
+                  "  pm.expect(body.status).to.eql('FILLED');",
+                  "  pm.expect(body.side).to.eql('CASH_OUT');",
+                  "  pm.expect(body.size).to.eql(3000);",
+                  "  pm.expect(body.price).to.eql(1);",
+                  "  pm.expect(body.rejectionReason).to.eql(null);",
+                  "});",
+                  "pm.collectionVariables.set('transferOrderId', body.id);"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{transferKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_OUT\",\n  \"amount\": 3000\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            },
+            {
+              "name": "Retry CASH_OUT: same key, same request -> debited once",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "pm.collectionVariables.set('expectedCashDelta', '0');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 replay of the same CASH_OUT', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true');",
+                  "  pm.expect(String(body.id)).to.eql(String(pm.collectionVariables.get('transferOrderId')));",
+                  "  pm.expect(body.status).to.eql('FILLED');",
+                  "});"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{transferKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_OUT\",\n  \"amount\": 3000\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            },
+            {
+              "name": "CASH_OUT above the available cash -> REJECTED",
+              "event": [
+                { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+                  "// One peso more than can be withdrawn right now (cash minus NEW BUY reservations), whatever the state.",
+                  "pm.collectionVariables.set('cashOutTooMuch', String(Math.floor(Number(pm.collectionVariables.get('availableCashBefore'))) + 1));",
+                  "pm.collectionVariables.set('expectedCashDelta', '0');"
+                ] } },
+                { "listen": "test", "script": { "type": "text/javascript", "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('201 REJECTED INSUFFICIENT_FUNDS (persisted business result)', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(body.status).to.eql('REJECTED');",
+                  "  pm.expect(body.rejectionReason).to.eql('INSUFFICIENT_FUNDS');",
+                  "  pm.expect(body.side).to.eql('CASH_OUT');",
+                  "  pm.expect(body.size).to.eql(Number(pm.collectionVariables.get('cashOutTooMuch')));",
+                  "});"
+                ] } }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" },
+                  { "key": "Idempotency-Key", "value": "{{requestKey}}" }
+                ],
+                "body": { "mode": "raw", "raw": "{\n  \"side\": \"CASH_OUT\",\n  \"amount\": {{cashOutTooMuch}}\n}" },
+                "url": "{{baseUrl}}/api/v1/users/{{userId}}/orders"
+              }
+            }
+          ]
         }
       ]
     },
