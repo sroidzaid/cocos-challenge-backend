@@ -71,7 +71,7 @@ Respuesta con el seed original (usuario 1, cotizaciones del 2023-07-14):
 | `availableCash` | `cashBalance` − cash reservado por las **NEW BUY** (Σ `size × price`, D2) | 753.000 − (50×710 + 60×1.500) = 627.500,00 |
 | `marketValue` | `quantity × lastPrice` (close más reciente), exacto | PAMP 40 × 925,85 = 37.034,00 |
 | `averageCost` | Costo promedio ponderado (ver política abajo), expuesto con 2 decimales `HALF_EVEN` | PAMP 930,00 |
-| `totalReturnPercent` | `(lastPrice − averageCost) / averageCost × 100` = `(marketValue − costo) / costo × 100`, 2 decimales `HALF_EVEN` | PAMP −166 / 37.200 = −0,45 % |
+| `totalReturnPercent` | Rendimiento **no realizado** de la posición abierta: `(lastPrice − averageCost) / averageCost × 100` = `(marketValue − costo) / costo × 100`, 2 decimales `HALF_EVEN`. Pese al nombre, no incluye ganancias realizadas ni es una rentabilidad histórica total | PAMP −166 / 37.200 = −0,45 % |
 | `totalAccountValue` | `cashBalance` + Σ `marketValue` de las posiciones **con precio**, incluidas las negativas | 753.000 + 37.034 + 114.750 − 15.028 = 889.756,00 |
 
 **Reglas:**

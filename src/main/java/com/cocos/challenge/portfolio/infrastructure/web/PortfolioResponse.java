@@ -60,8 +60,10 @@ record PortfolioResponse(
             @Schema(description = "quantity * lastPrice; null without market data", example = "37034.00",
                     nullable = true)
             BigDecimal marketValue,
-            @Schema(description = "Unrealized return over the cost basis: (lastPrice - averageCost) / averageCost "
-                    + "* 100, 2 decimals; null when it cannot be computed reliably", example = "-0.45",
+            @Schema(description = "Unrealized return of the open position over its weighted average cost: "
+                    + "(lastPrice - averageCost) / averageCost * 100, 2 decimals; null when it cannot be computed "
+                    + "reliably. Despite the name, it excludes realized gains and is not a historical total return",
+                    example = "-0.45",
                     nullable = true)
             BigDecimal totalReturnPercent,
             ValuationStatus valuationStatus) {

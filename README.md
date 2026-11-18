@@ -59,6 +59,10 @@ hexagonal pragmática**, sobre el esquema PostgreSQL provisto (`database.sql`).
 
 ## Quick Start
 
+**Docker local es el entorno completo de evaluación:** la base de Compose arranca con el seed y todas las migraciones,
+y admite escrituras (órdenes, cancelaciones, transferencias). La base externa de Cocos (perfil `cocos`) es opcional y
+de solo lectura.
+
 ```bash
 git clone https://github.com/sroidzaid/cocos-challenge-backend.git
 cd cocos-challenge-backend
@@ -136,7 +140,7 @@ Contrato completo, validaciones, ejemplos y códigos de error: **[docs/api.md](d
 ```
 En Windows: `.\mvnw.cmd test` / `.\mvnw.cmd clean verify`.
 
-- **Resultado de referencia de `clean verify`:** 150 tests unitarios (Surefire) y 128 de integración (Failsafe),
+- **Resultado de referencia de `clean verify`:** 164 tests unitarios (Surefire) y 145 de integración (Failsafe),
   sin fallos.
 - Los tests de integración levantan **su propio** PostgreSQL (`postgres:16-alpine`) con Testcontainers, inicializado
   con `database.sql` + V2 + V3 + V4. Nunca usan H2, la base local ni la de Cocos (`ProfileIsolationIT` lo verifica).

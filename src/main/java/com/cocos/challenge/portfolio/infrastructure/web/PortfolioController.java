@@ -25,7 +25,7 @@ class PortfolioController {
     @GetMapping
     @Operation(summary = "Get the portfolio of a user",
             description = "Total account value, cash balance, cash available to trade (net of NEW BUY reservations) "
-                    + "and positions valued at the latest close, with weighted average cost and total return.")
+                    + "and positions valued at the latest close, with weighted average cost and unrealized return (totalReturnPercent).")
     @ApiResponse(responseCode = "200", description = "Portfolio")
     @ApiResponse(responseCode = "400", description = "Invalid user id")
     @ApiResponse(responseCode = "404", description = "User not found (USER_NOT_FOUND)")

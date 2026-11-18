@@ -3,7 +3,7 @@ package com.cocos.challenge.portfolio.domain;
 /** How reliable the valuation of a position is. Every status other than {@link #OK} also produces a warning. */
 public enum ValuationStatus {
 
-    /** Valued at the latest close, with average cost and total return. */
+    /** Valued at the latest close, with average cost and unrealized return. */
     OK,
 
     /** No market data: no market value nor return, and the position is left out of the total account value. */
