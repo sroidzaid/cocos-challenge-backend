@@ -94,7 +94,7 @@ Ejemplos y validaciones: [docs/api.md](api.md#transferencias-cash_in--cash_out).
   exactos.
 - **Divisiones:**
   - El costo promedio se calcula internamente con `MathContext.DECIMAL128`.
-  - El rendimiento total y el retorno diario se redondean solo al exponerlos: porcentaje con 2 decimales,
+  - El rendimiento no realizado (`totalReturnPercent`) y el retorno diario se redondean solo al exponerlos: porcentaje con 2 decimales,
     `HALF_EVEN`.
   - El costo promedio expuesto también lleva 2 decimales `HALF_EVEN`.
 - Las reglas se centralizan en `shared/domain/MonetaryPolicy`, con tests de casos límite.
