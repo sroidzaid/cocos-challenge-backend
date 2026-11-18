@@ -1,0 +1,21 @@
+# Profile "test": activated explicitly by every Spring-based test (@ActiveProfiles("test")).
+# No datasource is configured here on purpose: it is provided by Testcontainers (@ServiceConnection),
+# a PostgreSQL container initialised with the original database.sql. Tests can never reach the local
+# or the Cocos database.
+spring:
+  datasource:
+    hikari:
+      # Spring caches one application context per test configuration and every context keeps its own pool against
+      # the single shared container (max_connections = 100). Small, lazily filled pools keep the total bounded;
+      # 5 is still more than the concurrency tests need (2 worker threads + the test thread).
+      maximum-pool-size: 5
+      minimum-idle: 1
+logging:
+  structured:
+    format:
+      console: ""
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %5p [%X{correlationId:-}] %-40.40logger{39} : %m%n"
+  level:
+    # Expected errors are triggered on purpose in error-handling tests.
+    com.cocos.challenge.shared.infrastructure.web.GlobalExceptionHandler: "OFF"

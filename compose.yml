@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cocos-db
+    environment:
+      POSTGRES_DB: cocos
+      POSTGRES_USER: cocos
+      POSTGRES_PASSWORD: cocos
+    ports:
+      - "5432:5432"
+    volumes:
+      - cocos_pgdata:/var/lib/postgresql/data
+      - ./database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+      - ./db/migration/V2__create_order_idempotency.sql:/docker-entrypoint-initdb.d/02-V2.sql:ro
+      - ./db/migration/V3__orders_integrity_constraints.sql:/docker-entrypoint-initdb.d/03-V3.sql:ro
+      - ./db/migration/V4__lookup_indexes.sql:/docker-entrypoint-initdb.d/04-V4.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -U cocos -d cocos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  cocos_pgdata:

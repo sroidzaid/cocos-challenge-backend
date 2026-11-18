@@ -1,0 +1,22 @@
+# External PostgreSQL database provided by Cocos for the challenge (not necessarily production).
+#  - Credentials only via environment variables, without defaults: startup fails if any is missing.
+#  - COCOS_DB_URL must not embed credentials (ExternalDatabaseGuard rejects it).
+#  - READ-ONLY by default: PostgreSQL rejects every write. Set COCOS_DB_READ_ONLY=false only once writes
+#    against this database have been explicitly authorised.
+#  - No initialisation scripts, no DDL (common configuration: sql.init.mode=never, ddl-auto=validate).
+#  - Automated tests never use this profile.
+spring:
+  datasource:
+    url: ${COCOS_DB_URL}
+    username: ${COCOS_DB_USERNAME}
+    password: ${COCOS_DB_PASSWORD}
+    hikari:
+      read-only: ${COCOS_DB_READ_ONLY:true}
+      data-source-properties:
+        # pgjdbc: with a read-only connection, run every statement (also in auto-commit) in a READ ONLY transaction.
+        readOnlyMode: always
+
+logging:
+  level:
+    # Never log the pool configuration (it includes the JDBC URL).
+    com.zaxxer.hikari.HikariConfig: INFO

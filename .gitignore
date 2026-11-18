@@ -1,0 +1,41 @@
+# Build
+target/
+!.mvn/wrapper/maven-wrapper.jar
+/build/
+/out/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+.classpath
+.project
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary / editor files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Local configuration / secrets
+.env
+.env.*
+!.env.example
+*.local.yml
+application-secrets.yml
+
+# Logs and JVM crash files
+*.log
+/logs/
+hs_err_pid*
+replay_pid*

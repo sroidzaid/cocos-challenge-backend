@@ -1,0 +1,5 @@
+# Normalise line endings in the repository; scripts keep the endings their shell requires.
+* text=auto
+/mvnw text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
