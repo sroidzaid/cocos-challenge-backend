@@ -1,0 +1,18 @@
+# Local development profile (default when no profile is active).
+# The database is a local PostgreSQL initialised manually with the original database.sql (see README).
+# Defaults are development-only values matching the documented docker command; they are not real credentials.
+spring:
+  datasource:
+    url: ${LOCAL_DB_URL:jdbc:postgresql://localhost:5432/cocos}
+    username: ${LOCAL_DB_USERNAME:cocos}
+    password: ${LOCAL_DB_PASSWORD:cocos}
+
+# Human-readable logs for local development.
+logging:
+  structured:
+    format:
+      console: ""
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %5p [%X{correlationId:-}] %-40.40logger{39} : %m%n"
+  level:
+    com.cocos.challenge: DEBUG

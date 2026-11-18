@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: cocos-challenge-backend
+  profiles:
+    # Running without an explicit profile means local development. The external Cocos database is only
+    # reachable by activating the "cocos" profile explicitly; tests always run with the "test" profile.
+    default: local
+  jackson:
+    deserialization:
+      # A fractional quantity (1.5) must be rejected (400), not silently truncated to 1 share.
+      accept-float-as-int: false
+  datasource:
+    # Connection URL and credentials are defined per profile (application-local.yml / application-cocos.yml).
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 5000
+  jpa:
+    open-in-view: false
+    hibernate:
+      # The schema is provided by Cocos (database.sql) and the application never modifies it:
+      # Hibernate only validates the entity mapping against it.
+      ddl-auto: validate
+      naming:
+        # The DDL uses unquoted camelCase identifiers, which PostgreSQL folds to lowercase
+        # (instrumentId -> instrumentid). Map names verbatim; entities declare explicit column names.
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+  sql:
+    init:
+      # Explicit (already the default for PostgreSQL): the application never runs schema/data scripts.
+      mode: never
+
+app:
+  # orders.datetime is TIMESTAMP WITHOUT TIME ZONE: business time zone used to produce it.
+  time-zone: ${APP_TIME_ZONE:America/Argentina/Buenos_Aires}
+  persistence:
+    # Maximum wait to acquire the per-account lock before failing with a transient (503) error.
+    account-lock-timeout: ${APP_ACCOUNT_LOCK_TIMEOUT:3s}
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  observations:
+    key-values:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  structured:
+    # JSON (Elastic Common Schema) logs; MDC entries such as correlationId are included automatically.
+    format:
+      console: ecs
